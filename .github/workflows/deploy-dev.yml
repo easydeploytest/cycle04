@@ -13,6 +13,6 @@ jobs:
       repo: ${{ github.repository }}
       event_name: ${{ github.event_name }}
       sha: ${{ github.sha }}
-      version: ${{ github.event.release.tag_name || '' }}
+      version: ${{ github.ref_name }}
     secrets:
       GH_PAT: ${{ secrets.GH_PAT }}
