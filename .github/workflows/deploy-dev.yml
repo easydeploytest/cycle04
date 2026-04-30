@@ -1,24 +1,36 @@
-name: Deploy dev
+name: Deploy
 
 on:
   push:
     branches: [main]
+  release:
+    types: [published]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Dispatch to EasyDeploy platform
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+      - name: Dispatch to platform
         run: |
           APP=$(basename $GITHUB_REPOSITORY)
-          APP_YAML_B64=$(base64 -w0 < app.yaml)
-          curl -sf -X POST \
-            -H "Authorization: token $GH_PAT" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/easydeploytest/EasyDeploy/dispatches" \
-            -d "{\"event_type\":\"app-deploy\",\"client_payload\":{\"app\":\"$APP\",\"sha\":\"$GITHUB_SHA\",\"repo_url\":\"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\",\"app_yaml_b64\":\"$APP_YAML_B64\"}}"
-          echo "Dispatched deploy for $APP"
+          APP_YAML_B64=$(base64 -w0 app.yaml)
+          if [ "${{ github.event_name }}" = "release" ]; then
+            gh api repos/easydeploytest/EasyDeploy/dispatches \
+              -X POST \
+              -f event_type=app-promote \
+              -f "client_payload[version]=${{ github.event.release.tag_name }}" \
+              -f "client_payload[repo_url]=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              -f "client_payload[app_yaml_b64]=$APP_YAML_B64"
+          else
+            gh api repos/easydeploytest/EasyDeploy/dispatches \
+              -X POST \
+              -f event_type=app-deploy \
+              -f "client_payload[app]=$APP" \
+              -f "client_payload[sha]=$GITHUB_SHA" \
+              -f "client_payload[repo_url]=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              -f "client_payload[app_yaml_b64]=$APP_YAML_B64"
+          fi
