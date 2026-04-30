@@ -8,11 +8,28 @@ on:
 
 jobs:
   deploy:
-    uses: easydeploytest/EasyDeploy/.github/workflows/app-dispatch.yml@main
-    with:
-      repo: ${{ github.repository }}
-      event_name: ${{ github.event_name }}
-      sha: ${{ github.sha }}
-      version: ${{ github.ref_name }}
-    secrets:
-      GH_PAT: ${{ secrets.GH_PAT }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dispatch to platform
+        run: |
+          APP=$(basename $GITHUB_REPOSITORY)
+          APP_YAML_B64=$(base64 -w0 app.yaml)
+          if [ "${{ github.event_name }}" = "release" ]; then
+            gh api repos/easydeploytest/EasyDeploy/dispatches \
+              -X POST \
+              -f event_type=app-promote \
+              -f "client_payload[version]=${{ github.ref_name }}" \
+              -f "client_payload[repo_url]=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              -f "client_payload[app_yaml_b64]=$APP_YAML_B64"
+          else
+            gh api repos/easydeploytest/EasyDeploy/dispatches \
+              -X POST \
+              -f event_type=app-deploy \
+              -f "client_payload[app]=$APP" \
+              -f "client_payload[sha]=$GITHUB_SHA" \
+              -f "client_payload[repo_url]=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              -f "client_payload[app_yaml_b64]=$APP_YAML_B64"
+          fi
