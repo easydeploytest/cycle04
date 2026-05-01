@@ -3,8 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main]
-  release:
-    types: [published]
+    tags: ['v*']
 
 jobs:
   deploy:
@@ -13,15 +12,17 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_PAT }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Dispatch to platform
         run: |
           APP=$(basename $GITHUB_REPOSITORY)
           APP_YAML_B64=$(base64 -w0 app.yaml)
-          if [ "${{ github.event_name }}" = "release" ]; then
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
             gh api repos/easydeploytest/EasyDeploy/dispatches \
               -X POST \
               -f event_type=app-promote \
-              -f "client_payload[version]=${{ github.ref_name }}" \
+              -f "client_payload[version]=$VERSION" \
               -f "client_payload[repo_url]=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
               -f "client_payload[app_yaml_b64]=$APP_YAML_B64"
           else
